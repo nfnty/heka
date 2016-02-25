@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/mozilla-services/heka/message"
 	"github.com/mozilla-services/heka/pipeline"
 )
 
@@ -49,55 +50,47 @@ func writeEscField(buf *bytes.Buffer, str string) {
 }
 
 func (ie *InfluxdbEncoder) Encode(pack *pipeline.PipelinePack) (output []byte, err error) {
-	message := pack.Message
+	msg := pack.Message
 	buf := bytes.Buffer{}
 
-	writeEscMeasure(&buf, *message.Type)
+	writeEscMeasure(&buf, *msg.Type)
 	buf.WriteRune(',')
 	buf.WriteString("Logger=")
-	writeEscField(&buf, *message.Logger)
+	writeEscField(&buf, *msg.Logger)
 
 	buf.WriteRune(' ')
 
 	first := true
-	for _, field := range message.Fields {
-		key := field.Name
-		value := field.GetValue()
-
+	for _, field := range msg.Fields {
 		if first == false {
 			buf.WriteRune(',')
 		} else {
 			first = false
 		}
-		writeEscField(&buf, key)
+		writeEscField(&buf, *field.Name)
 		buf.WriteRune('=')
 
-		kind := reflect.TypeOf(value).Kind()
-		switch kind {
-		case reflect.Int:
-			buf.WriteString(strconv.FormatInt(value, 10))
+		switch field.GetValueType() {
+		case message.Field_INTEGER:
+			buf.WriteString(strconv.FormatInt(field.GetValueInteger(), 10))
 			buf.WriteRune('i')
-		case reflect.Uint:
-			buf.WriteString(strconv.FormatUint(value, 10))
-			buf.WriteRune('i')
-		case reflect.Float32:
-			buf.WriteString(strconv.FormatFloat(value, 'f', -1, 32))
-		case reflect.Float64:
-			buf.WriteString(strconv.FormatFloat(value, 'f', -1, 64))
-		case reflect.Bool:
-			buf.WriteString(strconv.FormatBool(value))
-		case reflect.String:
+		case message.Field_DOUBLE:
+			buf.WriteString(strconv.FormatFloat(field.GetValueDouble(), 'f', -1, 64))
+		case message.Field_BOOL:
+			buf.WriteString(strconv.FormatBool(field.GetValueBool()))
+		case message.Field_STRING:
 			buf.WriteRune('"')
-			writeEscField(&buf, value)
+			writeEscField(&buf, field.GetValueString())
 			buf.WriteRune('"')
 		default:
-			err = fmt.Errorf("Unknown value type: %s: %s", key, kind)
+			err = fmt.Errorf("Unsupported field type: %s: %s",
+				*field.Name, message.Field_ValueType_name[int32(field_type)])
 			return
 		}
 	}
 
 	buf.WriteRune(' ')
-	buf.WriteString(strconv.FormatInt(time.Unix(0, message.GetTimestamp()).UnixNano(), 10))
+	buf.WriteString(strconv.FormatInt(time.Unix(0, msg.GetTimestamp()).UnixNano(), 10))
 	buf.WriteRune('\n')
 	return
 }
