@@ -52,24 +52,24 @@ func (ie *InfluxdbEncoder) Encode(pack *pipeline.PipelinePack) (output []byte, e
 	message := pack.Message
 	buf := bytes.Buffer{}
 
-	writeEscMeasure(buf, message.Type)
+	writeEscMeasure(&buf, *message.Type)
 	buf.WriteRune(',')
 	buf.WriteString("Logger=")
-	writeEscField(buf, message.Logger)
+	writeEscField(&buf, *message.Logger)
 
 	buf.WriteRune(' ')
 
 	first := true
 	for _, field := range message.Fields {
-		key = field.Name
-		value = field.GetValue()
+		key := field.Name
+		value := field.GetValue()
 
 		if first == false {
 			buf.WriteRune(',')
 		} else {
 			first = false
 		}
-		writeEscField(buf, key)
+		writeEscField(&buf, key)
 		buf.WriteRune('=')
 
 		kind := reflect.TypeOf(value).Kind()
@@ -88,7 +88,7 @@ func (ie *InfluxdbEncoder) Encode(pack *pipeline.PipelinePack) (output []byte, e
 			buf.WriteString(strconv.FormatBool(value))
 		case reflect.String:
 			buf.WriteRune('"')
-			writeEscField(buf, value)
+			writeEscField(&buf, value)
 			buf.WriteRune('"')
 		default:
 			err = fmt.Errorf("Unknown value type: %s: %s", key, kind)
