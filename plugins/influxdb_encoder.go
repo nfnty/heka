@@ -70,18 +70,43 @@ func (ie *InfluxdbEncoder) Encode(pack *pipeline.PipelinePack) (output []byte, e
 		writeEscField(&buf, *field.Name)
 		buf.WriteRune('=')
 
-		switch field.GetValueType() {
+		field_type := field.GetValueType()
+		switch field_type {
 		case message.Field_INTEGER:
-			buf.WriteString(strconv.FormatInt(field.GetValueInteger(), 10))
+			values := field.GetValueInteger()
+			if len(values) > 1 {
+				err = fmt.Errorf("More than one value integer: %s", *field.Name)
+				return
+			}
+			buf.WriteString(strconv.FormatInt(values[0], 10))
 			buf.WriteRune('i')
+
 		case message.Field_DOUBLE:
-			buf.WriteString(strconv.FormatFloat(field.GetValueDouble(), 'f', -1, 64))
+			values := field.GetValueDouble()
+			if len(values) > 1 {
+				err = fmt.Errorf("More than one value double: %s", *field.Name)
+				return
+			}
+			buf.WriteString(strconv.FormatFloat(values[0], 'f', -1, 64))
+
 		case message.Field_BOOL:
-			buf.WriteString(strconv.FormatBool(field.GetValueBool()))
+			values := field.GetValueBool()
+			if len(values) > 1 {
+				err = fmt.Errorf("More than one value bool: %s", *field.Name)
+				return
+			}
+			buf.WriteString(strconv.FormatBool(values[0]))
+
 		case message.Field_STRING:
+			values := field.GetValueString()
+			if len(values) > 1 {
+				err = fmt.Errorf("More than one value string: %s", *field.Name)
+				return
+			}
 			buf.WriteRune('"')
-			writeEscField(&buf, field.GetValueString())
+			writeEscField(&buf, values[0])
 			buf.WriteRune('"')
+
 		default:
 			err = fmt.Errorf("Unsupported field type: %s: %s",
 				*field.Name, message.Field_ValueType_name[int32(field_type)])
