@@ -15,10 +15,13 @@
 package plugins
 
 import (
-	"github.com/mozilla-services/heka/pipeline"
+	"bytes"
+	"fmt"
 	"reflect"
 	"strconv"
 	"time"
+
+	"github.com/mozilla-services/heka/pipeline"
 )
 
 type InfluxdbEncoder struct{}
@@ -57,7 +60,10 @@ func (ie *InfluxdbEncoder) Encode(pack *pipeline.PipelinePack) (output []byte, e
 	buf.WriteRune(' ')
 
 	first := true
-	for key, value := range message.Fields {
+	for _, field := range message.Fields {
+		key = field.Name
+		value = field.GetValue()
+
 		if first == false {
 			buf.WriteRune(',')
 		} else {
