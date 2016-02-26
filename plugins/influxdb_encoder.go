@@ -49,8 +49,12 @@ func (ie *InfluxdbEncoder) Init(config interface{}) (err error) {
 		ie.timestamp_division = 1e6
 	case "s":
 		ie.timestamp_division = 1e9
+	case "m":
+		ie.timestamp_division = 60 * 1e9
+	case "h":
+		ie.timestamp_division = 60 * 60 * 1e9
 	default:
-		return errors.New("timestamp_precision has to be one of [\"ns\", \"us\", \"ms\", \"s\"]")
+		return errors.New("timestamp_precision has to be one of [ns, us, ms, s, m, h]")
 	}
 	return
 }
