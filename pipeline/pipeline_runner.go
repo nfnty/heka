@@ -234,6 +234,9 @@ func (p *PipelinePack) Recycle(delivErr error) {
 	if p.BufferedPack {
 		p.DelivErrChan <- delivErr
 	} else {
+		if delivErr != nil {
+			LogError.Printf("Plugin error: %s", delivErr)
+		}
 		p.recycle()
 	}
 }
