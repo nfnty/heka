@@ -64,9 +64,18 @@ func writeEscMeasure(buf *bytes.Buffer, str string) {
 	}
 }
 
-func writeEscField(buf *bytes.Buffer, str string) {
+func writeEscKey(buf *bytes.Buffer, str string) {
 	for _, r := range str {
 		if r == ',' || r == ' ' || r == '=' {
+			buf.WriteRune('\\')
+		}
+		buf.WriteRune(r)
+	}
+}
+
+func writeEscString(buf *bytes.Buffer, str string) {
+	for _, r := range str {
+		if r == '"' {
 			buf.WriteRune('\\')
 		}
 		buf.WriteRune(r)
@@ -79,7 +88,7 @@ func (ie *InfluxdbEncoder) Encode(pack *pipeline.PipelinePack) (output []byte, e
 
 	writeEscMeasure(&buf, *msg.Type)
 	buf.WriteString(",Logger=")
-	writeEscField(&buf, *msg.Logger)
+	writeEscKey(&buf, *msg.Logger)
 	buf.WriteRune(' ')
 
 	first := true
@@ -89,7 +98,7 @@ func (ie *InfluxdbEncoder) Encode(pack *pipeline.PipelinePack) (output []byte, e
 		} else {
 			first = false
 		}
-		writeEscField(&buf, *field.Name)
+		writeEscKey(&buf, *field.Name)
 		buf.WriteRune('=')
 
 		field_type := field.GetValueType()
@@ -126,7 +135,7 @@ func (ie *InfluxdbEncoder) Encode(pack *pipeline.PipelinePack) (output []byte, e
 				return
 			}
 			buf.WriteRune('"')
-			writeEscField(&buf, values[0])
+			writeEscString(&buf, values[0])
 			buf.WriteRune('"')
 
 		default:
