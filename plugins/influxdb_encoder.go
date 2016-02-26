@@ -16,6 +16,7 @@ package plugins
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -23,10 +24,35 @@ import (
 	"github.com/mozilla-services/heka/pipeline"
 )
 
-type InfluxdbEncoder struct{}
+type InfluxdbEncoder struct {
+	timestamp_division int64
+}
 
-func (ie *InfluxdbEncoder) Init(config interface{}) error {
-	return nil
+type InfluxdbEncoderConfig struct {
+	TimestampPrecision string `toml:"timestamp_precision"`
+}
+
+func (ie *InfluxdbEncoder) ConfigStruct() interface{} {
+	return &InfluxdbEncoderConfig{
+		TimestampPrecision: "ns",
+	}
+}
+
+func (ie *InfluxdbEncoder) Init(config interface{}) (err error) {
+	conf := config.(*InfluxdbEncoderConfig)
+	switch conf.TimestampPrecision {
+	case "ns":
+		ie.timestamp_division = 1e0
+	case "us":
+		ie.timestamp_division = 1e3
+	case "ms":
+		ie.timestamp_division = 1e6
+	case "s":
+		ie.timestamp_division = 1e9
+	default:
+		return errors.New("timestamp_precision has to be one of [\"ns\", \"us\", \"ms\", \"s\"]")
+	}
+	return
 }
 
 func writeEscMeasure(buf *bytes.Buffer, str string) {
@@ -52,10 +78,8 @@ func (ie *InfluxdbEncoder) Encode(pack *pipeline.PipelinePack) (output []byte, e
 	buf := bytes.Buffer{}
 
 	writeEscMeasure(&buf, *msg.Type)
-	buf.WriteRune(',')
-	buf.WriteString("Logger=")
+	buf.WriteString(",Logger=")
 	writeEscField(&buf, *msg.Logger)
-
 	buf.WriteRune(' ')
 
 	first := true
@@ -113,7 +137,7 @@ func (ie *InfluxdbEncoder) Encode(pack *pipeline.PipelinePack) (output []byte, e
 	}
 
 	buf.WriteRune(' ')
-	buf.WriteString(strconv.FormatInt(msg.GetTimestamp(), 10))
+	buf.WriteString(strconv.FormatInt(msg.GetTimestamp()/ie.timestamp_division, 10))
 	buf.WriteRune('\n')
 	return
 }
