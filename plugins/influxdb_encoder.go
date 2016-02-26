@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
-	"time"
 
 	"github.com/mozilla-services/heka/message"
 	"github.com/mozilla-services/heka/pipeline"
