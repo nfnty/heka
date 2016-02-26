@@ -74,7 +74,7 @@ func (ie *InfluxdbEncoder) Encode(pack *pipeline.PipelinePack) (output []byte, e
 		case message.Field_INTEGER:
 			values := field.GetValueInteger()
 			if len(values) > 1 {
-				err = fmt.Errorf("More than one value integer: %s", *field.Name)
+				err = fmt.Errorf("More than one value: integer: %s", *field.Name)
 				return
 			}
 			buf.WriteString(strconv.FormatInt(values[0], 10))
@@ -83,7 +83,7 @@ func (ie *InfluxdbEncoder) Encode(pack *pipeline.PipelinePack) (output []byte, e
 		case message.Field_DOUBLE:
 			values := field.GetValueDouble()
 			if len(values) > 1 {
-				err = fmt.Errorf("More than one value double: %s", *field.Name)
+				err = fmt.Errorf("More than one value: double: %s", *field.Name)
 				return
 			}
 			buf.WriteString(strconv.FormatFloat(values[0], 'f', -1, 64))
@@ -91,7 +91,7 @@ func (ie *InfluxdbEncoder) Encode(pack *pipeline.PipelinePack) (output []byte, e
 		case message.Field_BOOL:
 			values := field.GetValueBool()
 			if len(values) > 1 {
-				err = fmt.Errorf("More than one value bool: %s", *field.Name)
+				err = fmt.Errorf("More than one value: bool: %s", *field.Name)
 				return
 			}
 			buf.WriteString(strconv.FormatBool(values[0]))
@@ -99,7 +99,7 @@ func (ie *InfluxdbEncoder) Encode(pack *pipeline.PipelinePack) (output []byte, e
 		case message.Field_STRING:
 			values := field.GetValueString()
 			if len(values) > 1 {
-				err = fmt.Errorf("More than one value string: %s", *field.Name)
+				err = fmt.Errorf("More than one value: string: %s", *field.Name)
 				return
 			}
 			buf.WriteRune('"')
@@ -114,7 +114,7 @@ func (ie *InfluxdbEncoder) Encode(pack *pipeline.PipelinePack) (output []byte, e
 	}
 
 	buf.WriteRune(' ')
-	buf.WriteString(strconv.FormatInt(time.Unix(0, msg.GetTimestamp()).UnixNano(), 10))
+	buf.WriteString(strconv.FormatInt(msg.GetTimestamp(), 10))
 	buf.WriteRune('\n')
 	return
 }
