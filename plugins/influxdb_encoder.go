@@ -152,7 +152,7 @@ func (ie *InfluxdbEncoder) Encode(pack *pipeline.PipelinePack) (output []byte, e
 	buf.WriteRune(' ')
 	buf.WriteString(strconv.FormatInt(msg.GetTimestamp()/ie.timestamp_division, 10))
 	buf.WriteRune('\n')
-	return
+	return buf.Bytes(), err
 }
 
 func init() {
