@@ -8,7 +8,7 @@
 # the Initial Developer. All Rights Reserved.
 #
 # Contributor(s):
-#   Rob Miller (rmiller@mozilla.com)
+#   nfnty
 #
 # ***** END LICENSE BLOCK *****/
 
@@ -24,6 +24,15 @@ import (
 	"github.com/mozilla-services/heka/pipeline"
 )
 
+const (
+	DivNanoSecond  = 1e0
+	DivMicroSecond = 1e3
+	DivMilliSecond = 1e6
+	DivSecond      = 1e9
+	DivMinute      = DivSecond * 60
+	DivHour        = DivHour * 60
+)
+
 type InfluxdbEncoder struct {
 	timestamp_division int64
 }
@@ -32,27 +41,27 @@ type InfluxdbEncoderConfig struct {
 	TimestampPrecision string `toml:"timestamp_precision"`
 }
 
-func (ie *InfluxdbEncoder) ConfigStruct() interface{} {
+func (encoder *InfluxdbEncoder) ConfigStruct() interface{} {
 	return &InfluxdbEncoderConfig{
 		TimestampPrecision: "ns",
 	}
 }
 
-func (ie *InfluxdbEncoder) Init(config interface{}) (err error) {
+func (encoder *InfluxdbEncoder) Init(config interface{}) (err error) {
 	conf := config.(*InfluxdbEncoderConfig)
 	switch conf.TimestampPrecision {
 	case "ns":
-		ie.timestamp_division = 1e0
+		encoder.timestamp_division = DivNanoSecond
 	case "us":
-		ie.timestamp_division = 1e3
+		encoder.timestamp_division = DivMicroSecond
 	case "ms":
-		ie.timestamp_division = 1e6
+		encoder.timestamp_division = DivMilliSecond
 	case "s":
-		ie.timestamp_division = 1e9
+		encoder.timestamp_division = DivSecond
 	case "m":
-		ie.timestamp_division = 60 * 1e9
+		encoder.timestamp_division = DivMinute
 	case "h":
-		ie.timestamp_division = 60 * 60 * 1e9
+		encoder.timestamp_division = DivHour
 	default:
 		return errors.New("timestamp_precision has to be one of [ns, us, ms, s, m, h]")
 	}
@@ -86,7 +95,7 @@ func writeEscString(buf *bytes.Buffer, str string) {
 	}
 }
 
-func (ie *InfluxdbEncoder) Encode(pack *pipeline.PipelinePack) (output []byte, err error) {
+func (encoder *InfluxdbEncoder) Encode(pack *pipeline.PipelinePack) (output []byte, err error) {
 	msg := pack.Message
 	buf := bytes.Buffer{}
 
@@ -150,7 +159,7 @@ func (ie *InfluxdbEncoder) Encode(pack *pipeline.PipelinePack) (output []byte, e
 	}
 
 	buf.WriteRune(' ')
-	buf.WriteString(strconv.FormatInt(msg.GetTimestamp()/ie.timestamp_division, 10))
+	buf.WriteString(strconv.FormatInt(msg.GetTimestamp()/encoder.timestamp_division, 10))
 	buf.WriteRune('\n')
 	return buf.Bytes(), err
 }
