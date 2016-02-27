@@ -12,7 +12,7 @@
 #
 # ***** END LICENSE BLOCK *****/
 
-package plugins
+package nfnty
 
 import (
 	"bytes"

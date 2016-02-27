@@ -46,6 +46,7 @@ import (
 	_ "github.com/mozilla-services/heka/plugins/kafka"
 	_ "github.com/mozilla-services/heka/plugins/logstreamer"
 	_ "github.com/mozilla-services/heka/plugins/nagios"
+	_ "github.com/mozilla-services/heka/plugins/nfnty"
 	_ "github.com/mozilla-services/heka/plugins/payload"
 	_ "github.com/mozilla-services/heka/plugins/process"
 	_ "github.com/mozilla-services/heka/plugins/smtp"
