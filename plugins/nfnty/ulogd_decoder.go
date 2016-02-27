@@ -71,14 +71,6 @@ func (decoder *UlogdDecoder) parseTimestamp(timestamp string) (t int64, err erro
 func (decoder *UlogdDecoder) parseJSON(key string, value interface{}) (field *message.Field, err error) {
 	switch val := value.(type) {
 	case string:
-		if key == "@Timestamp" || key == "timestamp" {
-			var pValue int64
-			if pValue, err = decoder.parseTimestamp(val); err != nil {
-				return
-			}
-			field, err = message.NewField("@Timestamp", pValue, "")
-			return
-		}
 		field, err = message.NewField(key, val, "")
 
 	case json.Number:
@@ -117,9 +109,34 @@ func (decoder *UlogdDecoder) Decode(pack *pipeline.PipelinePack) (packs []*pipel
 	}
 	pack.Message.SetType(matches[1])
 
+	timeSet := false
 	for key, value := range jMessage.(map[string]interface{}) {
 		var field *message.Field
-		if field, err = decoder.parseJSON(key, value); err != nil {
+		if key == "@timestamp" || key == "timestamp" {
+			if timeSet {
+				err = errors.New("Multiple timestamp values")
+				return
+			}
+			timeSet = true
+
+			if val, ok := value.(string); ok {
+				var pval int64
+				if pval, err = decoder.parseTimestamp(val); err != nil {
+					return
+				}
+				pack.Message.SetTimestamp(pval)
+			} else {
+				err = fmt.Errorf("Timestamp is not a string (%T) \"%s\": %#v", value, key, value)
+				return
+			}
+
+			field, err = message.NewField("@timestamp", value, "")
+
+		} else {
+			field, err = decoder.parseJSON(key, value)
+		}
+
+		if err != nil {
 			return
 		}
 		pack.Message.AddField(field)
