@@ -19,7 +19,6 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -49,35 +48,32 @@ func (decoder *UlogdDecoder) Init(config interface{}) (err error) {
 }
 
 func decodeJSON(key string, value interface{}) (field *message.Field, err error) {
-	switch vtype := value.(type) {
+	switch val := value.(type) {
 	case string:
-		if pValue, e := strconv.ParseInt(value.(string), 10, 64); e == nil {
-			field, err = message.NewField(key, pValue, "")
-			return
-		}
-		if pValue, e := strconv.ParseFloat(value.(string), 64); e == nil {
-			field, err = message.NewField(key, pValue, "")
-			return
-		}
-		if key == "timestamp" {
-			if pValue, e := time.ParseInLocation(RFC3339Micro, value.(string), time.Local); e == nil {
+		if key == "@Timestamp" || key == "timestamp" {
+			if pValue, e := time.ParseInLocation(RFC3339Micro, val, time.Local); e == nil {
 				field, err = message.NewField("@Timestamp", pValue, "")
 				return
 			}
 		}
-		if key == "@Timestamp" {
-			if pValue, e := time.ParseInLocation(RFC3339Micro, value.(string), time.Local); e == nil {
-				field, err = message.NewField(key, pValue, "")
-				return
-			}
+		field, err = message.NewField(key, val, "")
+
+	case json.Number:
+		if pValue, e := val.Int64(); e == nil {
+			field, err = message.NewField(key, pValue, "")
+			return
 		}
-		field, err = message.NewField(key, value.(string), "")
+		if pValue, e := val.Float64(); e == nil {
+			field, err = message.NewField(key, pValue, "")
+			return
+		}
+		err = fmt.Errorf("Failed to decode json.Number: %s: %s", key, val)
 
 	case bool:
-		field, err = message.NewField(key, value.(bool), "")
+		field, err = message.NewField(key, val, "")
 
 	default:
-		err = fmt.Errorf("Unsupported JSON decode type: %s: %s", key, vtype)
+		err = fmt.Errorf("Unsupported JSON decode type (%T) \"%s\": %#v", val, key, val)
 	}
 	return
 }
