@@ -29,32 +29,7 @@ import (
 const RFC3339Micro string = "2006-01-02T15:04:05.999999"
 
 // UlogdDecoder is the backbone of the plugin
-type UlogdDecoder struct {
-	pconfig   *pipeline.PipelineConfig
-	fieldsAdd []string
-}
-
-// UlogdDecoderConfig contains user configuration
-type UlogdDecoderConfig struct {
-	FieldsAdd []string `toml:"FieldsAdd"`
-}
-
-// SetPipelineConfig sets pconfig
-func (decoder *UlogdDecoder) SetPipelineConfig(pconfig *pipeline.PipelineConfig) {
-	decoder.pconfig = pconfig
-}
-
-// ConfigStruct initializes the configuration with defaults
-func (decoder *UlogdDecoder) ConfigStruct() interface{} {
-	return new(UlogdDecoderConfig)
-}
-
-// Init initializes the plugin
-func (decoder *UlogdDecoder) Init(config interface{}) (err error) {
-	conf := config.(*UlogdDecoderConfig)
-	decoder.fieldsAdd = conf.FieldsAdd
-	return
-}
+type UlogdDecoder struct{}
 
 func decodeJSON(key string, value interface{}) (field *message.Field, err error) {
 	switch vtype := value.(type) {
