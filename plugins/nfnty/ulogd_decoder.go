@@ -35,6 +35,14 @@ var re = regexp.MustCompile(".*\\.(.*)")
 // UlogdDecoder is the backbone of the plugin
 type UlogdDecoder struct{}
 
+// UlogdDecoderConfig contains user configuration
+type UlogdDecoderConfig struct{}
+
+// ConfigStruct initializes the configuration with defaults
+func (encoder *UlogdDecoder) ConfigStruct() interface{} {
+	return new(UlogdDecoderConfig)
+}
+
 func decodeJSON(key string, value interface{}) (field *message.Field, err error) {
 	switch vtype := value.(type) {
 	case string:
