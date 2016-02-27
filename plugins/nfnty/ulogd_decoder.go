@@ -100,15 +100,13 @@ func (decoder *UlogdDecoder) Decode(pack *pipeline.PipelinePack) (packs []*pipel
 
 	for key, value := range jMessage.(map[string]interface{}) {
 		var field *message.Field
-		field, err = decodeJSON(key, value)
-		if err != nil {
+		if field, err = decodeJSON(key, value); err != nil {
 			return
 		}
 		pack.Message.AddField(field)
 	}
 
-	packs = []*pipeline.PipelinePack{pack}
-	return
+	return []*pipeline.PipelinePack{pack}, err
 }
 
 func init() {
