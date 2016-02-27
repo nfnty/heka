@@ -41,20 +41,20 @@ type InfluxdbEncoder struct {
 
 // InfluxdbEncoderConfig contains user configuration
 type InfluxdbEncoderConfig struct {
-	timestampPrecision string `toml:"timestamp_precision"`
+	TimestampPrecision string `toml:"timestamp_precision"`
 }
 
 // ConfigStruct initializes the configuration with defaults
 func (encoder *InfluxdbEncoder) ConfigStruct() interface{} {
 	return &InfluxdbEncoderConfig{
-		timestampPrecision: "ns",
+		TimestampPrecision: "ns",
 	}
 }
 
 // Init initializes the plugin
 func (encoder *InfluxdbEncoder) Init(config interface{}) (err error) {
 	conf := config.(*InfluxdbEncoderConfig)
-	switch conf.timestampPrecision {
+	switch conf.TimestampPrecision {
 	case "ns":
 		encoder.timestampDivision = DivNanoSecond
 	case "us":
