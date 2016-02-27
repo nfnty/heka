@@ -24,44 +24,49 @@ import (
 	"github.com/mozilla-services/heka/pipeline"
 )
 
+// Divide nanosecond by these
 const (
 	DivNanoSecond  = 1e0
 	DivMicroSecond = 1e3
 	DivMilliSecond = 1e6
 	DivSecond      = 1e9
 	DivMinute      = DivSecond * 60
-	DivHour        = DivHour * 60
+	DivHour        = DivMinute * 60
 )
 
+// InfluxdbEncoder is the backbone of the plugin
 type InfluxdbEncoder struct {
-	timestamp_division int64
+	timestampDivision int64
 }
 
+// InfluxdbEncoderConfig contains user configuration
 type InfluxdbEncoderConfig struct {
-	TimestampPrecision string `toml:"timestamp_precision"`
+	timestampPrecision string `toml:"timestamp_precision"`
 }
 
+// ConfigStruct initializes the configuration with defaults
 func (encoder *InfluxdbEncoder) ConfigStruct() interface{} {
 	return &InfluxdbEncoderConfig{
-		TimestampPrecision: "ns",
+		timestampPrecision: "ns",
 	}
 }
 
+// Init initializes the plugin
 func (encoder *InfluxdbEncoder) Init(config interface{}) (err error) {
 	conf := config.(*InfluxdbEncoderConfig)
-	switch conf.TimestampPrecision {
+	switch conf.timestampPrecision {
 	case "ns":
-		encoder.timestamp_division = DivNanoSecond
+		encoder.timestampDivision = DivNanoSecond
 	case "us":
-		encoder.timestamp_division = DivMicroSecond
+		encoder.timestampDivision = DivMicroSecond
 	case "ms":
-		encoder.timestamp_division = DivMilliSecond
+		encoder.timestampDivision = DivMilliSecond
 	case "s":
-		encoder.timestamp_division = DivSecond
+		encoder.timestampDivision = DivSecond
 	case "m":
-		encoder.timestamp_division = DivMinute
+		encoder.timestampDivision = DivMinute
 	case "h":
-		encoder.timestamp_division = DivHour
+		encoder.timestampDivision = DivHour
 	default:
 		return errors.New("timestamp_precision has to be one of [ns, us, ms, s, m, h]")
 	}
@@ -95,6 +100,56 @@ func writeEscString(buf *bytes.Buffer, str string) {
 	}
 }
 
+func writeField(buf *bytes.Buffer, field *message.Field) (err error) {
+	writeEscKey(buf, *field.Name)
+	buf.WriteRune('=')
+
+	fieldType := field.GetValueType()
+	switch fieldType {
+	case message.Field_INTEGER:
+		values := field.GetValueInteger()
+		if len(values) > 1 {
+			err = fmt.Errorf("More than one value: integer: %s", *field.Name)
+			return
+		}
+		buf.WriteString(strconv.FormatInt(values[0], 10))
+		buf.WriteRune('i')
+
+	case message.Field_DOUBLE:
+		values := field.GetValueDouble()
+		if len(values) > 1 {
+			err = fmt.Errorf("More than one value: double: %s", *field.Name)
+			return
+		}
+		buf.WriteString(strconv.FormatFloat(values[0], 'f', -1, 64))
+
+	case message.Field_BOOL:
+		values := field.GetValueBool()
+		if len(values) > 1 {
+			err = fmt.Errorf("More than one value: bool: %s", *field.Name)
+			return
+		}
+		buf.WriteString(strconv.FormatBool(values[0]))
+
+	case message.Field_STRING:
+		values := field.GetValueString()
+		if len(values) > 1 {
+			err = fmt.Errorf("More than one value: string: %s", *field.Name)
+			return
+		}
+		buf.WriteRune('"')
+		writeEscString(buf, values[0])
+		buf.WriteRune('"')
+
+	default:
+		err = fmt.Errorf("Unsupported field type: %s: %s",
+			*field.Name, message.Field_ValueType_name[int32(fieldType)])
+		return
+	}
+	return
+}
+
+// Encode encodes PipelinePack
 func (encoder *InfluxdbEncoder) Encode(pack *pipeline.PipelinePack) (output []byte, err error) {
 	msg := pack.Message
 	buf := bytes.Buffer{}
@@ -106,60 +161,18 @@ func (encoder *InfluxdbEncoder) Encode(pack *pipeline.PipelinePack) (output []by
 
 	first := true
 	for _, field := range msg.Fields {
-		if first == false {
+		if !first {
 			buf.WriteRune(',')
 		} else {
 			first = false
 		}
-		writeEscKey(&buf, *field.Name)
-		buf.WriteRune('=')
-
-		field_type := field.GetValueType()
-		switch field_type {
-		case message.Field_INTEGER:
-			values := field.GetValueInteger()
-			if len(values) > 1 {
-				err = fmt.Errorf("More than one value: integer: %s", *field.Name)
-				return
-			}
-			buf.WriteString(strconv.FormatInt(values[0], 10))
-			buf.WriteRune('i')
-
-		case message.Field_DOUBLE:
-			values := field.GetValueDouble()
-			if len(values) > 1 {
-				err = fmt.Errorf("More than one value: double: %s", *field.Name)
-				return
-			}
-			buf.WriteString(strconv.FormatFloat(values[0], 'f', -1, 64))
-
-		case message.Field_BOOL:
-			values := field.GetValueBool()
-			if len(values) > 1 {
-				err = fmt.Errorf("More than one value: bool: %s", *field.Name)
-				return
-			}
-			buf.WriteString(strconv.FormatBool(values[0]))
-
-		case message.Field_STRING:
-			values := field.GetValueString()
-			if len(values) > 1 {
-				err = fmt.Errorf("More than one value: string: %s", *field.Name)
-				return
-			}
-			buf.WriteRune('"')
-			writeEscString(&buf, values[0])
-			buf.WriteRune('"')
-
-		default:
-			err = fmt.Errorf("Unsupported field type: %s: %s",
-				*field.Name, message.Field_ValueType_name[int32(field_type)])
+		if err = writeField(&buf, field); err != nil {
 			return
 		}
 	}
 
 	buf.WriteRune(' ')
-	buf.WriteString(strconv.FormatInt(msg.GetTimestamp()/encoder.timestamp_division, 10))
+	buf.WriteString(strconv.FormatInt(msg.GetTimestamp()/encoder.timestampDivision, 10))
 	buf.WriteRune('\n')
 	return buf.Bytes(), err
 }
