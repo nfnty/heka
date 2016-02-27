@@ -78,12 +78,12 @@ func (decoder *UlogdDecoder) Decode(pack *pipeline.PipelinePack) (packs []*pipel
 		return
 	}
 
-	strs := re.FindStringSubmatch(pack.Message.GetLogger())
-	if strs == nil {
+	matches := re.FindStringSubmatch(pack.Message.GetLogger())
+	if matches == nil {
 		err = errors.New("Logger has to be named *.Type")
 		return
 	}
-	pack.Message.SetType(strs[0])
+	pack.Message.SetType(matches[1])
 
 	for key, value := range jMessage.(map[string]interface{}) {
 		var field *message.Field
