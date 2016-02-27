@@ -39,8 +39,13 @@ type UlogdDecoder struct{}
 type UlogdDecoderConfig struct{}
 
 // ConfigStruct initializes the configuration with defaults
-func (encoder *UlogdDecoder) ConfigStruct() interface{} {
+func (decoder *UlogdDecoder) ConfigStruct() interface{} {
 	return new(UlogdDecoderConfig)
+}
+
+// Init initializes the plugin
+func (decoder *UlogdDecoder) Init(config interface{}) (err error) {
+	return
 }
 
 func decodeJSON(key string, value interface{}) (field *message.Field, err error) {
