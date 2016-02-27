@@ -16,7 +16,9 @@ package plugins
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -27,6 +29,8 @@ import (
 
 // RFC3339Micro is a time layout without timezone
 const RFC3339Micro string = "2006-01-02T15:04:05.999999"
+
+var re = regexp.MustCompile(".*\\.(.*)")
 
 // UlogdDecoder is the backbone of the plugin
 type UlogdDecoder struct{}
@@ -73,6 +77,13 @@ func (decoder *UlogdDecoder) Decode(pack *pipeline.PipelinePack) (packs []*pipel
 	if err = jDecoder.Decode(&jMessage); err != nil {
 		return
 	}
+
+	strs := re.FindStringSubmatch(pack.Message.GetLogger())
+	if strs == nil {
+		err = errors.New("Logger has to be named *.Type")
+		return
+	}
+	pack.Message.SetType(strs[0])
 
 	for key, value := range jMessage.(map[string]interface{}) {
 		var field *message.Field
