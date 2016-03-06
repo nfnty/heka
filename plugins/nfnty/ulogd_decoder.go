@@ -111,7 +111,6 @@ func (decoder *UlogdDecoder) Decode(pack *pipeline.PipelinePack) (packs []*pipel
 
 	timeSet := false
 	for key, value := range jMessage.(map[string]interface{}) {
-		var field *message.Field
 		if key == "@timestamp" || key == "timestamp" {
 			if timeSet {
 				err = errors.New("Multiple timestamp values")
@@ -120,26 +119,22 @@ func (decoder *UlogdDecoder) Decode(pack *pipeline.PipelinePack) (packs []*pipel
 			timeSet = true
 
 			if val, ok := value.(string); ok {
-				var pval int64
-				if pval, err = decoder.parseTimestamp(val); err != nil {
+				var pTime int64
+				if pTime, err = decoder.parseTimestamp(val); err != nil {
 					return
 				}
-				pack.Message.SetTimestamp(pval)
+				pack.Message.SetTimestamp(pTime)
 			} else {
 				err = fmt.Errorf("Timestamp is not a string (%T) \"%s\": %#v", value, key, value)
 				return
 			}
-
-			field, err = message.NewField("@timestamp", value, "")
-
 		} else {
-			field, err = decoder.parseJSON(key, value)
+			var field *message.Field
+			if field, err = decoder.parseJSON(key, value); err != nil {
+				return
+			}
+			pack.Message.AddField(field)
 		}
-
-		if err != nil {
-			return
-		}
-		pack.Message.AddField(field)
 	}
 
 	return []*pipeline.PipelinePack{pack}, err
