@@ -26,37 +26,52 @@ import (
 	"github.com/mozilla-services/heka/pipeline"
 )
 
-// RFC3339Micro is a time layout without timezone
-const RFC3339Micro string = "2006-01-02T15:04:05.999999"
-
-var re = regexp.MustCompile(".*\\.(.*)")
-
-// UlogdDecoder is the backbone of the plugin
-type UlogdDecoder struct {
+// JSONDecoder is the backbone of the plugin
+type JSONDecoder struct {
 	timeLocation *time.Location
+	timeKey      string
+	timeLayout   string
 }
 
-// UlogdDecoderConfig contains user configuration
-type UlogdDecoderConfig struct {
+// JSONDecoderConfig contains user configuration
+type JSONDecoderConfig struct {
 	TimeLocation string `toml:"time_location"`
+	TimeKey      string `toml:"time_key"`
+	TimeLayout   string `toml:"time_layout"`
 }
 
 // ConfigStruct initializes the configuration with defaults
-func (decoder *UlogdDecoder) ConfigStruct() interface{} {
-	return &UlogdDecoderConfig{
+func (decoder *JSONDecoder) ConfigStruct() interface{} {
+	return &JSONDecoderConfig{
 		TimeLocation: time.Local.String(),
 	}
 }
 
 // Init initializes the plugin
-func (decoder *UlogdDecoder) Init(config interface{}) (err error) {
-	conf := config.(*UlogdDecoderConfig)
-	decoder.timeLocation, err = time.LoadLocation(conf.TimeLocation)
+func (decoder *JSONDecoder) Init(config interface{}) (err error) {
+	conf := config.(*JSONDecoderConfig)
+
+	if decoder.timeLocation, err = time.LoadLocation(conf.TimeLocation); err != nil {
+		return
+	}
+
+	if conf.TimeKey == "" {
+		err = errors.New("time_key has to be defined")
+		return
+	}
+	decoder.timeKey = conf.TimeKey
+
+	if conf.TimeLayout == "" {
+		err = errors.New("time_layout has to be defined")
+		return
+	}
+	decoder.timeLayout = conf.TimeLayout
+
 	return
 }
 
-func (decoder *UlogdDecoder) parseTimestamp(timestamp string) (t int64, err error) {
-	pTime, err := time.ParseInLocation(RFC3339Micro, timestamp, decoder.timeLocation)
+func (decoder *JSONDecoder) parseTimestamp(timestamp string) (t int64, err error) {
+	pTime, err := time.ParseInLocation(decoder.timeLayout, timestamp, decoder.timeLocation)
 	if err != nil {
 		err = errors.New("Failed to parse timestamp")
 		return
@@ -68,11 +83,8 @@ func (decoder *UlogdDecoder) parseTimestamp(timestamp string) (t int64, err erro
 	return pTime.UnixNano(), err
 }
 
-func (decoder *UlogdDecoder) parseJSON(key string, value interface{}) (field *message.Field, err error) {
+func (decoder *JSONDecoder) parseJSON(key string, value interface{}) (field *message.Field, err error) {
 	switch val := value.(type) {
-	case string:
-		field, err = message.NewField(key, val, "")
-
 	case json.Number:
 		if pValue, e := val.Int64(); e == nil {
 			field, err = message.NewField(key, pValue, "")
@@ -83,18 +95,16 @@ func (decoder *UlogdDecoder) parseJSON(key string, value interface{}) (field *me
 			return
 		}
 		err = fmt.Errorf("Failed to decode json.Number: %s: %s", key, val)
-
-	case bool:
-		field, err = message.NewField(key, val, "")
-
 	default:
-		err = fmt.Errorf("Unsupported JSON decode type (%T) \"%s\": %#v", val, key, val)
+		field, err = message.NewField(key, val, "")
 	}
 	return
 }
 
+var re = regexp.MustCompile("[^.]+\\.(.+)")
+
 // Decode decodes PipelinePack
-func (decoder *UlogdDecoder) Decode(pack *pipeline.PipelinePack) (packs []*pipeline.PipelinePack, err error) {
+func (decoder *JSONDecoder) Decode(pack *pipeline.PipelinePack) (packs []*pipeline.PipelinePack, err error) {
 	jDecoder := json.NewDecoder(strings.NewReader(pack.Message.GetPayload()))
 	jDecoder.UseNumber()
 	var jMessage interface{}
@@ -104,20 +114,15 @@ func (decoder *UlogdDecoder) Decode(pack *pipeline.PipelinePack) (packs []*pipel
 
 	matches := re.FindStringSubmatch(pack.Message.GetLogger())
 	if matches == nil {
-		err = errors.New("Logger has to be named *.Type")
+		err = errors.New("Logger has to be named +.Type+")
 		return
 	}
 	pack.Message.SetType(matches[1])
 
 	timeSet := false
 	for key, value := range jMessage.(map[string]interface{}) {
-		if key == "@timestamp" || key == "timestamp" {
-			if timeSet {
-				err = errors.New("Multiple timestamp values")
-				return
-			}
+		if key == decoder.timeKey {
 			timeSet = true
-
 			if val, ok := value.(string); ok {
 				var pTime int64
 				if pTime, err = decoder.parseTimestamp(val); err != nil {
@@ -137,11 +142,16 @@ func (decoder *UlogdDecoder) Decode(pack *pipeline.PipelinePack) (packs []*pipel
 		}
 	}
 
+	if !timeSet {
+		err = errors.New("time_key was not found")
+		return
+	}
+
 	return []*pipeline.PipelinePack{pack}, err
 }
 
 func init() {
-	pipeline.RegisterPlugin("UlogdDecoder", func() interface{} {
-		return new(UlogdDecoder)
+	pipeline.RegisterPlugin("JSONDecoder", func() interface{} {
+		return new(JSONDecoder)
 	})
 }
