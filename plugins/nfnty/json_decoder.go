@@ -31,13 +31,15 @@ type JSONDecoder struct {
 	timeLocation *time.Location
 	timeKey      string
 	timeLayout   string
+	keysIgnore   []string
 }
 
 // JSONDecoderConfig contains user configuration
 type JSONDecoderConfig struct {
-	TimeLocation string `toml:"time_location"`
-	TimeKey      string `toml:"time_key"`
-	TimeLayout   string `toml:"time_layout"`
+	TimeLocation string   `toml:"time_location"`
+	TimeKey      string   `toml:"time_key"`
+	TimeLayout   string   `toml:"time_layout"`
+	KeysIgnore   []string `toml:"keys_ignore"`
 }
 
 // ConfigStruct initializes the configuration with defaults
@@ -66,6 +68,8 @@ func (decoder *JSONDecoder) Init(config interface{}) (err error) {
 		return
 	}
 	decoder.timeLayout = conf.TimeLayout
+
+	decoder.keysIgnore = conf.KeysIgnore
 
 	return
 }
@@ -121,6 +125,12 @@ func (decoder *JSONDecoder) Decode(pack *pipeline.PipelinePack) (packs []*pipeli
 
 	timeSet := false
 	for key, value := range jMessage.(map[string]interface{}) {
+		for _, f := range decoder.keysIgnore {
+			if key == f {
+				continue
+			}
+		}
+
 		if key == decoder.timeKey {
 			timeSet = true
 			if val, ok := value.(string); ok {
