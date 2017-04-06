@@ -160,7 +160,8 @@ DEPENDS ${SANDBOX_PACKAGE} GoPackages ${MESSAGE_PROTO_OUT}
 )
 
 add_custom_target(message_matcher_parser ALL
-COMMAND ${GO_EXECUTABLE} tool yacc -l=false -o=message_matcher_parser.go message_matcher_parser.y
+COMMAND ${GO_EXECUTABLE} get golang.org/x/tools/cmd/goyacc
+COMMAND goyacc -l=false -o=message_matcher_parser.go message_matcher_parser.y
 DEPENDS heka_source
 WORKING_DIRECTORY "${HEKA_PATH}/message"
 )
