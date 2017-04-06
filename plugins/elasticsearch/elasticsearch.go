@@ -397,6 +397,7 @@ func (h *HttpBulkIndexer) Index(body []byte) (err error, retry bool) {
 		return fmt.Errorf("Can't create bulk request: %s", err.Error()), true
 	}
 	request.Header.Add("Accept", "application/json")
+	request.Header.Add("Content-Type", "application/json")
 	if h.username != "" && h.password != "" {
 		request.SetBasicAuth(h.username, h.password)
 	}
